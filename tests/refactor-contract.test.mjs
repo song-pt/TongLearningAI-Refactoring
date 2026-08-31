@@ -46,3 +46,21 @@ test('browser bundle has no privileged secrets and UI has no gradients', async (
   assert.match(env, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.doesNotMatch(env, /VITE_(?:ADMIN|AI|SUPABASE_SERVICE)/);
 });
+
+test('admin settings report save errors and use in-page editors', async () => {
+  const [panel, admin] = await Promise.all(['features/admin/AdminPanel.tsx', 'api/admin.ts'].map(source));
+  assert.doesNotMatch(panel, /\bprompt\(/);
+  assert.match(panel, /role="dialog"/);
+  assert.match(panel, /系统设置已保存|config\.update/);
+  assert.match(admin, /config_save_failed/);
+  assert.match(admin, /select\('id,code,code_hint/);
+  assert.match(admin, /insert\(\{ code, code_hash/);
+});
+
+test('AI endpoint and compatibility fallbacks are configured', async () => {
+  const [ai, chat] = await Promise.all(['api/_lib/ai.ts', 'api/chat.ts'].map(source));
+  assert.match(ai, /\/chat\\\/completions\$\/i\.test\(clean\)/);
+  assert.match(ai, /process\.env\.AI_TEXT_MODEL \|\| stored\.text_model/);
+  assert.match(chat, /requestProvider\(false, false\)/);
+  assert.match(chat, /AI服务返回 \$\{upstream\.status\}/);
+});

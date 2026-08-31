@@ -39,4 +39,3 @@ export function stringField(value: unknown, name: string, max = 5000): string {
   if (normalized.length > max) throw new ApiError(400, 'field_too_long', `${name}过长`);
   return normalized;
 }
-

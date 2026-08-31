@@ -7,11 +7,13 @@ create table if not exists schema_migrations(version text primary key,applied_at
 create table if not exists access_keys(id uuid primary key default gen_random_uuid(),code text unique,note text,is_active boolean not null default true,created_at timestamptz not null default now(),total_tokens bigint not null default 0,token_limit bigint,code_hash text,code_hint text,total_images bigint not null default 0,image_limit bigint);
 alter table access_keys add column if not exists code_hash text;
 alter table access_keys add column if not exists code_hint text;
+alter table access_keys add column if not exists code text;
 alter table access_keys add column if not exists total_images bigint not null default 0;
 alter table access_keys add column if not exists image_limit bigint;
 alter table access_keys alter column code drop not null;
 update access_keys set code_hash=encode(extensions.digest(code,'sha256'),'hex'),code_hint=case when length(code)<=8 then left(code,2)||'••••' else left(code,4)||'••••'||right(code,2) end where code_hash is null and code is not null;
 create unique index if not exists idx_access_keys_code_hash on access_keys(code_hash) where code_hash is not null;
+create unique index if not exists idx_access_keys_code on access_keys(code) where code is not null;
 alter table access_keys drop constraint if exists access_keys_token_nonnegative;
 alter table access_keys add constraint access_keys_token_nonnegative check(total_tokens>=0 and (token_limit is null or token_limit>=0));
 alter table access_keys drop constraint if exists access_keys_image_nonnegative;
@@ -113,3 +115,4 @@ alter table access_keys enable row level security; alter table device_sessions e
 
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('chat-images','chat-images',false,512000,array['image/png','image/jpeg','image/webp']) on conflict(id) do update set public=false,file_size_limit=512000,allowed_mime_types=excluded.allowed_mime_types;
 insert into schema_migrations(version) values('refactoring_beta_v1') on conflict(version) do nothing;
+insert into schema_migrations(version) values('refactoring_beta_v1_2') on conflict(version) do nothing;

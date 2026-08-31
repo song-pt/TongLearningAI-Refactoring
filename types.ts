@@ -9,6 +9,6 @@ export interface Message { id: string; role: 'user' | 'assistant' | 'tool' | 'sy
 export interface ConversationDetail { conversation: Conversation; messages: Message[] }
 export interface HistoryPage { items: Conversation[]; page: number; hasMore: boolean }
 export interface SearchResult { items: Conversation[]; mode: 'hybrid' | 'text' }
-export interface AdminKey { id: string; code_hint: string; note?: string | null; is_active: boolean; total_tokens: number; token_limit: number | null; total_images: number; image_limit: number | null; created_at: string }
+export interface AdminKey { id: string; code: string | null; code_hint: string; note?: string | null; is_active: boolean; total_tokens: number; token_limit: number | null; total_images: number; image_limit: number | null; created_at: string }
 export interface AdminDevice { id: string; owner_id: string; device_id: string; last_seen: string; is_banned: boolean }
-export interface AdminData { keys: AdminKey[]; devices: AdminDevice[]; subjects: Subject[]; levels: Level[]; config: Record<string, string>; models: Record<string, string> }
+export interface AdminData { keys: AdminKey[]; devices: AdminDevice[]; subjects: Subject[]; levels: Level[]; config: Record<string, string>; models: Record<string, string>; runtime: { baseUrl: string; textModel: string; visionModel: string; embeddingModel: string; apiConfigured: boolean; sources: Record<string, string> } }

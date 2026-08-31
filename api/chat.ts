@@ -3,7 +3,7 @@ import type { ApiRequest, ApiResponse } from './_lib/http.js';
 import { ApiError, assertMethod, handleError, readJson, stringField } from './_lib/http.js';
 import { requireSession } from './_lib/session.js';
 import { db } from './_lib/db.js';
-import { aiConfig, createEmbedding, ensureAiKey } from './_lib/ai.js';
+import { aiConfig, chatCompletionUrl, createEmbedding, ensureAiKey, providerError } from './_lib/ai.js';
 import { storeImage, trimOwnerHistory } from './_lib/history.js';
 
 export const config = { maxDuration: 60 };
@@ -83,15 +83,25 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const tools = body.useSearch && !imageData ? [{ type: 'web_search' }] : undefined;
     const controller = new AbortController();
     streamTimer = setTimeout(() => controller.abort(), 55_000);
-    const upstream = await fetch(`${provider.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+    const endpoint = chatCompletionUrl(provider.baseUrl);
+    const model = imageData ? provider.visionModel : provider.textModel;
+    const requestProvider = (stream: boolean, includeTools: boolean) => fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.apiKey}` },
-      body: JSON.stringify({ model: imageData ? provider.visionModel : provider.textModel, messages, stream: true, temperature: 0.5, ...(tools ? { tools } : {}) }),
+      body: JSON.stringify({ model, messages, stream, temperature: 0.5, ...(includeTools && tools ? { tools } : {}) }),
       signal: controller.signal,
     });
+    let upstream = await requestProvider(true, !!tools);
+    if (!upstream.ok && tools && [400, 404, 422].includes(upstream.status)) {
+      await upstream.body?.cancel();
+      upstream = await requestProvider(true, false);
+    }
+    if (!upstream.ok && [400, 406, 415, 422].includes(upstream.status)) {
+      await upstream.body?.cancel();
+      upstream = await requestProvider(false, false);
+    }
     if (!upstream.ok) {
-      const detail = await upstream.text();
-      throw new ApiError(502, 'provider_error', detail.slice(0, 300) || 'AI服务请求失败');
+      throw new ApiError(502, 'provider_error', `AI服务返回 ${upstream.status}: ${await providerError(upstream)}`);
     }
     if (!upstream.body) throw new ApiError(502, 'empty_stream', 'AI服务没有返回内容');
 
@@ -101,16 +111,17 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
 
-    const reader = upstream.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
     let answer = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-      const events = buffer.split(/\r?\n\r?\n/);
-      buffer = events.pop() || '';
-      for (const event of events) {
+    if (upstream.headers.get('content-type')?.includes('application/json')) {
+      const parsed = await upstream.json() as { choices?: Array<{ message?: { content?: string }; text?: string }> };
+      answer = parsed.choices?.[0]?.message?.content || parsed.choices?.[0]?.text || '';
+      if (answer) sse(res, 'delta', { content: answer });
+    } else {
+      const reader = upstream.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const consume = (events: string[]) => {
+        for (const event of events) {
         for (const line of event.split(/\r?\n/)) {
           if (!line.startsWith('data:')) continue;
           const raw = line.slice(5).trim();
@@ -127,7 +138,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
           }
         }
       }
-      if (done) break;
+      };
+      while (true) {
+        const { done, value } = await reader.read();
+        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+        const events = buffer.split(/\r?\n\r?\n/);
+        buffer = events.pop() || '';
+        consume(events);
+        if (done) { if (buffer.trim()) consume([buffer]); break; }
+      }
     }
     clearTimeout(streamTimer);
     streamTimer = undefined;

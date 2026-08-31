@@ -58,4 +58,3 @@ export function setSessionCookie(res: ApiResponse, token: string, maxAge = 60 * 
 export function clearSessionCookie(res: ApiResponse) {
   res.setHeader('Set-Cookie', `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
 }
-

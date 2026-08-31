@@ -22,7 +22,7 @@ export const api = {
   deleteConversation: (id: string) => request<{ success: boolean }>(`/api/history?id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
   searchHistory: (query: string, subject: string, allSubjects = false) => request<SearchResult>('/api/history-search', { method: 'POST', body: JSON.stringify({ query, subject, allSubjects }) }),
   admin: () => request<AdminData>('/api/admin'),
-  adminAction: (action: string, payload: Record<string, unknown>) => request<{ success: boolean; code?: string }>('/api/admin', { method: 'POST', body: JSON.stringify({ action, payload }) }),
+  adminAction: (action: string, payload: Record<string, unknown>) => request<{ success: boolean; code?: string; message?: string; detail?: unknown }>('/api/admin', { method: 'POST', body: JSON.stringify({ action, payload }) }),
 };
 
 export interface StreamChatInput { question: string; subjectCode: string; levelCode?: string; conversationId?: string; imageData?: string; useSearch?: boolean }
