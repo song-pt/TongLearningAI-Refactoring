@@ -1,0 +1,1 @@
+Use supabase_schema.sql. The duplicate legacy TXT schema is intentionally retired.

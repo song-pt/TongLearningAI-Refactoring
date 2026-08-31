@@ -1,0 +1,5 @@
+{
+  "name": "TongAI",
+  "description": "一个简易的AI学习全栈平台，包括密钥分发，自动熔断，Tokes监控等功能",
+  "requestFramePermissions": []
+}
