@@ -10,7 +10,7 @@ alter table access_keys add column if not exists code_hint text;
 alter table access_keys add column if not exists total_images bigint not null default 0;
 alter table access_keys add column if not exists image_limit bigint;
 alter table access_keys alter column code drop not null;
-update access_keys set code_hash=encode(digest(code,'sha256'),'hex'),code_hint=case when length(code)<=8 then left(code,2)||'••••' else left(code,4)||'••••'||right(code,2) end where code_hash is null and code is not null;
+update access_keys set code_hash=encode(extensions.digest(code,'sha256'),'hex'),code_hint=case when length(code)<=8 then left(code,2)||'••••' else left(code,4)||'••••'||right(code,2) end where code_hash is null and code is not null;
 create unique index if not exists idx_access_keys_code_hash on access_keys(code_hash) where code_hash is not null;
 alter table access_keys drop constraint if exists access_keys_token_nonnegative;
 alter table access_keys add constraint access_keys_token_nonnegative check(total_tokens>=0 and (token_limit is null or token_limit>=0));
@@ -30,7 +30,7 @@ do $$ begin
  if to_regclass('public.app_config') is not null then
   insert into public_config(key,value) select key,value from app_config where key in('app_title','app_logo','ai_mode','show_usage_to_user','enable_web_search') on conflict(key) do update set value=excluded.value,updated_at=now();
   insert into private_config(key,value) select case key when 'ai_text_model' then 'text_model' when 'ai_vision_model' then 'vision_model' end,value from app_config where key in('ai_text_model','ai_vision_model') and value<>'' on conflict(key) do update set value=excluded.value,updated_at=now();
-  if exists(select 1 from app_config where key='admin_password' and length(value)>=10) and not exists(select 1 from private_config where key='admin_password_hash') then insert into private_config(key,value) select 'admin_password_hash',crypt(value,gen_salt('bf',12)) from app_config where key='admin_password' and length(value)>=10; end if;
+  if exists(select 1 from app_config where key='admin_password' and length(value)>=10) and not exists(select 1 from private_config where key='admin_password_hash') then insert into private_config(key,value) select 'admin_password_hash',extensions.crypt(value,extensions.gen_salt('bf',12)) from app_config where key='admin_password' and length(value)>=10; end if;
  end if;
 end $$;
 
@@ -66,8 +66,8 @@ do $$ begin
  end if;
 end $$;
 
-create or replace function verify_admin_password(input_password text) returns boolean language sql security definer set search_path=public as $$ select coalesce((select value=crypt(input_password,value) from private_config where key='admin_password_hash'),false) $$;
-create or replace function set_admin_password(new_password text) returns void language plpgsql security definer set search_path=public as $$ begin if length(new_password)<10 then raise exception 'password_too_short'; end if; insert into private_config(key,value) values('admin_password_hash',crypt(new_password,gen_salt('bf',12))) on conflict(key) do update set value=excluded.value,updated_at=now(); end $$;
+create or replace function verify_admin_password(input_password text) returns boolean language sql security definer set search_path=public,extensions as $$ select coalesce((select value=extensions.crypt(input_password,value) from private_config where key='admin_password_hash'),false) $$;
+create or replace function set_admin_password(new_password text) returns void language plpgsql security definer set search_path=public,extensions as $$ begin if length(new_password)<10 then raise exception 'password_too_short'; end if; insert into private_config(key,value) values('admin_password_hash',extensions.crypt(new_password,extensions.gen_salt('bf',12))) on conflict(key) do update set value=excluded.value,updated_at=now(); end $$;
 create or replace function attachments_over_limit(p_max_count integer,p_max_bytes bigint) returns table(id uuid,storage_path text) language sql security definer set search_path=public as $$
   select ranked.id,ranked.storage_path from (
     select a.id,a.storage_path,row_number() over(order by a.created_at desc,a.id desc) as row_no,

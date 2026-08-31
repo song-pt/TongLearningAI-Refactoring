@@ -31,6 +31,14 @@ test('free-tier rolling limits and private storage remain configured', async () 
   assert.match(sql, /'chat-images','chat-images',false,512000/);
 });
 
+test('Supabase pgcrypto functions use the extensions schema', async () => {
+  const sql = await source('supabase_schema.sql');
+  assert.match(sql, /extensions\.crypt\(/);
+  assert.match(sql, /extensions\.gen_salt\(/);
+  assert.match(sql, /extensions\.digest\(/);
+  assert.doesNotMatch(sql, /(?<!\.)\bcrypt\(/);
+});
+
 test('browser bundle has no privileged secrets and UI has no gradients', async () => {
   const [vite, css, env] = await Promise.all(['vite.config.ts', 'index.css', '.env.example'].map(source));
   assert.doesNotMatch(vite, /AI_API_KEY|SERVICE_ROLE|ADMIN_PASSWORD/);
