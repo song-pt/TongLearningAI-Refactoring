@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, streamChat } from '../../services/client';
-import type { AppConfig, Conversation, Language, Message, Role } from '../../types';
+import type { AnswerBlock, AppConfig, Conversation, Language, Message, Role } from '../../types';
 
 export function useTongAI() {
   const [ready, setReady] = useState(false);
@@ -14,6 +14,7 @@ export function useTongAI() {
   const [busy, setBusy] = useState(false);
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [mobileView, setMobileView] = useState<'chat' | 'history'>('chat');
+  const [selectedBlock, setSelectedBlock] = useState<AnswerBlock>();
   const abortRef = useRef<AbortController>();
 
   useEffect(() => {
@@ -30,26 +31,29 @@ export function useTongAI() {
   }, []);
 
   const changeLanguage = (value: Language) => { setLanguage(value); localStorage.setItem('tongai_language', value); };
-  const logout = async () => { await api.logout(); setRole(undefined); setConversationId(undefined); setMessages([]); };
-  const newChat = () => { abortRef.current?.abort(); setConversationId(undefined); setMessages([]); setBusy(false); setMobileView('chat'); };
+  const logout = async () => { await api.logout(); setRole(undefined); setConversationId(undefined); setMessages([]); setSelectedBlock(undefined); };
+  const newChat = () => { abortRef.current?.abort(); setConversationId(undefined); setMessages([]); setSelectedBlock(undefined); setBusy(false); setMobileView('chat'); };
   const changeSubject = (code: string) => { setSubject(code); newChat(); };
   const openConversation = async (item: Conversation) => {
     const detail = await api.conversation(item.id);
     setSubject(detail.conversation.subject_code);
     setConversationId(detail.conversation.id);
     setMessages(detail.messages);
+    setSelectedBlock(undefined);
     setMobileView('chat');
   };
   const send = async ({ text, level, image, search }: { text: string; level: string; image?: string; search: boolean }) => {
     if (busy) return;
+    const focusBlock = selectedBlock;
     const userId = crypto.randomUUID();
     const assistantId = crypto.randomUUID();
-    setMessages((old) => [...old, { id: userId, role: 'user', content: text }, { id: assistantId, role: 'assistant', content: '' }]);
+    setMessages((old) => [...old, { id: userId, role: 'user', content: text, metadata: focusBlock ? { focusBlock } : undefined }, { id: assistantId, role: 'assistant', content: '' }]);
+    setSelectedBlock(undefined);
     setBusy(true);
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      await streamChat({ question: text, subjectCode: subject, levelCode: level || undefined, conversationId, imageData: image, useSearch: search }, {
+      await streamChat({ question: text, subjectCode: subject, levelCode: level || undefined, conversationId, imageData: image, useSearch: search, mode: conversationId ? 'followup' : 'new', focusBlock }, {
         signal: controller.signal,
         onDelta: (content) => setMessages((old) => old.map((message) => message.id === assistantId ? { ...message, content: message.content + content } : message)),
         onMeta: (meta) => { if (meta.conversationId) setConversationId(meta.conversationId); setHistoryRefresh((value) => value + 1); },
@@ -65,7 +69,7 @@ export function useTongAI() {
 
   return {
     ready, role, setRole, config, startupError, language, changeLanguage, subject, changeSubject,
-    conversationId, messages, busy, historyRefresh, mobileView, setMobileView,
+    conversationId, messages, busy, historyRefresh, mobileView, setMobileView, selectedBlock, setSelectedBlock,
     logout, newChat, openConversation, send, stop: () => abortRef.current?.abort(),
   };
 }

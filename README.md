@@ -19,6 +19,8 @@ TongAI 是一个多学科 AI 学习平台，支持文字解题、图片识别、
 - 管理后台使用站内编辑框管理学科、等级和密钥，并对保存成功或失败给出明确反馈。
 - 管理员可持续查看完整访问密钥；升级前已仅保存哈希的密钥可在“编辑”中设置新值。
 - 系统设置显示当前生效的 AI Base URL/模型，并提供“测试 AI 连接”。
+- 一个会话只处理一道题：首轮输入新题，后续输入框自动切换为“针对本题追问”；下一题需点击“新对话”。
+- AI 回答按步骤/语义片段结构化展示，可点击上一次回答中的某一步作为追问目标，也可直接追问整题。
 
 ## 重要勘误
 
@@ -31,12 +33,13 @@ TongAI 是一个多学科 AI 学习平台，支持文字解题、图片识别、
 
 1. 先备份现有数据库。
 2. 在 Supabase SQL Editor 执行 `supabase_schema.sql`。
-3. 脚本会迁移旧 `access_keys` 和 `chat_history`，并创建：
+3. 脚本会迁移旧 `access_keys` 和 `chat_history`，并创建或升级：
    - `conversations`
    - `messages`
    - `attachments`
    - `usage_ledger`
    - `public_config` / `private_config`
+   - `messages.metadata`（保存追问选中的回答片段）
 4. 脚本会启用 `pgcrypto`、`pg_trgm`、`vector`，并创建私有 `chat-images` bucket。
 5. 旧表暂时保留用于核对；确认迁移后再单独归档，不要在第一次升级时直接删除。
 

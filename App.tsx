@@ -10,8 +10,9 @@ import { copy } from './i18n';
 
 export default function App() {
   const app = useTongAI();
-  const { ready, role, setRole, config, startupError, language, changeLanguage, subject, changeSubject, conversationId, messages, busy, historyRefresh, mobileView, setMobileView, logout, newChat, openConversation, send, stop } = app;
+  const { ready, role, setRole, config, startupError, language, changeLanguage, subject, changeSubject, conversationId, messages, busy, historyRefresh, mobileView, setMobileView, selectedBlock, setSelectedBlock, logout, newChat, openConversation, send, stop } = app;
   const t = copy[language];
+  const lastAssistantId = [...messages].reverse().find((message) => message.role === 'assistant')?.id;
 
   if (!ready) return <div className="boot-screen">TongAI</div>;
   if (!role) return <LoginScreen language={language} onLanguage={changeLanguage} onLogin={setRole} startupError={startupError} />;
@@ -26,8 +27,8 @@ export default function App() {
       <div className={mobileView === 'history' ? 'history-column mobile-visible' : 'history-column'}><HistoryPanel subject={subject} subjects={config.subjects} language={language} refreshKey={historyRefresh} onOpen={(item) => void openConversation(item).catch((error: unknown) => alert(error instanceof Error ? error.message : '无法打开会话'))} /></div>
       <section className={mobileView === 'chat' ? 'chat-column mobile-visible' : 'chat-column'}>
         <div className="chat-toolbar"><div><span className="eyebrow">{config.subjects.find((item) => item.code === subject)?.label}</span><h1>{conversationId ? messages.find((m) => m.role === 'user')?.content.slice(0, 48) || t.chat : t.newChat}</h1></div><button className="secondary" onClick={newChat}><MessageSquarePlus size={16} />{t.newChat}</button></div>
-        <div className="messages" aria-live="polite">{!messages.length ? <div className="welcome"><BookOpen size={30} /><h2>{t.welcome}</h2><p>{t.welcomeSub}</p></div> : messages.map((message) => <article className={`message ${message.role}`} key={message.id}><div className="message-label">{message.role === 'user' ? '你' : 'TongAI'}</div>{message.role === 'assistant' ? (message.content ? <MathRenderer content={message.content} /> : <p className="generating">{t.loading}</p>) : <p>{message.content}</p>}</article>)}</div>
-        <Composer language={language} levels={config.levels} busy={busy} searchAllowed={config.config.enable_web_search === 'true'} onSend={(value) => void send(value)} onStop={stop} />
+        <div className="messages" aria-live="polite">{!messages.length ? <div className="welcome"><BookOpen size={30} /><h2>{t.welcome}</h2><p>{t.welcomeSub}</p></div> : messages.map((message) => <article className={`message ${message.role}`} key={message.id}><div className="message-label">{message.role === 'user' ? '你' : 'TongAI'}</div>{message.role === 'assistant' ? (message.content ? <MathRenderer content={message.content} selectable={!busy && message.id === lastAssistantId} selectedId={selectedBlock?.id} onSelect={(block) => setSelectedBlock(selectedBlock?.id === block.id ? undefined : block)} /> : <p className="generating">{t.loading}</p>) : <>{message.metadata?.focusBlock && <div className="message-focus">追问片段 · {message.metadata.focusBlock.label}</div>}<p>{message.content}</p></>}</article>)}</div>
+        <Composer language={language} levels={config.levels} busy={busy} searchAllowed={config.config.enable_web_search === 'true'} isFollowUp={!!conversationId} focusBlock={selectedBlock} onClearFocus={() => setSelectedBlock(undefined)} onSend={(value) => void send(value)} onStop={stop} />
       </section>
     </main>
   </div>;

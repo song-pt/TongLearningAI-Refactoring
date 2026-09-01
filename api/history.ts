@@ -28,7 +28,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       const { data: conversation, error } = await db().from('conversations').select('id,subject_code,level_code,title,summary,created_at,updated_at').eq('id', id).eq('owner_id', ownerId).maybeSingle();
       if (error) throw new ApiError(500, 'database_error', error.message);
       if (!conversation) throw new ApiError(404, 'not_found', '会话不存在');
-      const { data: messages, error: messageError } = await db().from('messages').select('id,role,content,created_at').eq('conversation_id', id).order('created_at');
+      const { data: messages, error: messageError } = await db().from('messages').select('id,role,content,metadata,created_at').eq('conversation_id', id).order('created_at');
       if (messageError) throw new ApiError(500, 'database_error', messageError.message);
       return res.status(200).json({ conversation, messages: messages || [] });
     }

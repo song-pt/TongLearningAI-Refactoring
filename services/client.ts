@@ -1,4 +1,4 @@
-import type { AdminData, AppConfig, ConversationDetail, HistoryPage, SearchResult, SessionInfo } from '../types';
+import type { AdminData, AnswerBlock, AppConfig, ConversationDetail, HistoryPage, SearchResult, SessionInfo } from '../types';
 interface ErrorPayload { error?: { code?: string; message?: string } }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -25,7 +25,7 @@ export const api = {
   adminAction: (action: string, payload: Record<string, unknown>) => request<{ success: boolean; code?: string; message?: string; detail?: unknown }>('/api/admin', { method: 'POST', body: JSON.stringify({ action, payload }) }),
 };
 
-export interface StreamChatInput { question: string; subjectCode: string; levelCode?: string; conversationId?: string; imageData?: string; useSearch?: boolean }
+export interface StreamChatInput { question: string; subjectCode: string; levelCode?: string; conversationId?: string; imageData?: string; useSearch?: boolean; mode: 'new' | 'followup'; focusBlock?: AnswerBlock }
 export async function streamChat(input: StreamChatInput, handlers: { onDelta: (content: string) => void; onMeta: (meta: { conversationId?: string; tokens?: number }) => void; signal?: AbortSignal }) {
   const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal: handlers.signal });
   if (!response.ok || !response.body) {

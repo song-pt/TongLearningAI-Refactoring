@@ -64,3 +64,19 @@ test('AI endpoint and compatibility fallbacks are configured', async () => {
   assert.match(chat, /requestProvider\(false, false\)/);
   assert.match(chat, /AI服务返回 \$\{upstream\.status\}/);
 });
+
+test('one-problem follow-up flow uses selectable answer blocks', async () => {
+  const [chat, app, composer, history, sql, i18n] = await Promise.all(['api/chat.ts', 'App.tsx', 'features/chat/Composer.tsx', 'api/history.ts', 'supabase_schema.sql', 'i18n.ts'].map(source));
+  assert.match(chat, /OUTPUT STRUCTURE PROTOCOL/);
+  assert.match(chat, /TONGAI_BLOCK/);
+  assert.match(chat, /原始题目摘要/);
+  assert.match(chat, /请点击新对话后再提问新题/);
+  assert.match(chat, /latestAssistant.*includes\(focusBlock\.content\)/s);
+  assert.match(app, /message\.id === lastAssistantId/);
+  assert.match(composer, /followUpInput/);
+  assert.match(i18n, /针对本题追问/);
+  assert.match(i18n, /如需提问下一题/);
+  assert.match(history, /content,metadata,created_at/);
+  assert.match(sql, /metadata jsonb not null default/);
+  assert.match(sql, /refactoring_beta_v1_3/);
+});

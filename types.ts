@@ -5,7 +5,9 @@ export interface Subject { code: string; label: string; color: string; icon: str
 export interface Level { code: string; label: string; sort_order: number; is_active?: boolean }
 export interface AppConfig { subjects: Subject[]; levels: Level[]; config: Record<string, string>; capabilities: Record<string, unknown> }
 export interface Conversation { id: string; subject_code: string; level_code?: string | null; title: string; summary: string; created_at: string; updated_at: string; score?: number }
-export interface Message { id: string; role: 'user' | 'assistant' | 'tool' | 'system'; content: string; created_at?: string }
+export interface AnswerBlock { id: string; label: string; content: string }
+export interface MessageMetadata { focusBlock?: AnswerBlock; format?: 'tongai-blocks-v1' }
+export interface Message { id: string; role: 'user' | 'assistant' | 'tool' | 'system'; content: string; created_at?: string; metadata?: MessageMetadata }
 export interface ConversationDetail { conversation: Conversation; messages: Message[] }
 export interface HistoryPage { items: Conversation[]; page: number; hasMore: boolean }
 export interface SearchResult { items: Conversation[]; mode: 'hybrid' | 'text' }
